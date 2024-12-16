@@ -1,1 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Othello Game</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      margin: 20px 0;
+    }
+    #message {
+      margin: 10px 0;
+      font-size: 16px;
+      color: red;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 50px);
+      grid-template-rows: repeat(8, 50px);
+      gap: 2px;
+    }
+    .cell {
+      width: 50px;
+      height: 50px;
+      background-color: green;
+      border: 1px solid #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+    }
+    .cell.highlight {
+      background-color: lightgreen;
+    }
+    .disc {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      position: absolute;
+    }
+    .disc.black {
+      background-color: black;
+    }
+    .disc.white {
+      background-color: white;
+    }
+    .disc.bg-black {
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+    .disc.bg-white {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <h1>Othello Game</h1>
+  <div id="message"></div>
+  <div id="board"></div>
+  <script>
+    const board = document.getElementById('board');
+    const message = document.getElementById('message');
+    const size = 8;
+    let currentPlayer = 'black';
 
+    const boardState = Array(size).fill(null).map(() => Array(size).fill(null));
+
+    boardState[3][3] = 'white';
+    boardState[3][4] = 'black';
+    boardState[4][3] = 'black';
+    boardState[4][4] = 'white';
+
+    function drawBoard() {
+      board.innerHTML = '';
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const cell = document.createElement('div');
+          cell.classList.add('cell');
+          if (boardState[row][col]) {
+            const disc = document.createElement('div');
+            disc.classList.add('disc', boardState[row][col]);
+            cell.appendChild(disc);
+          } else if (canPlaceDisc(row, col, currentPlayer)) {
+            cell.classList.add('highlight');
+          }
+          const bgDisc = document.createElement('div');
+          bgDisc.classList.add('disc', `bg-${currentPlayer}`);
+          cell.appendChild(bgDisc);
+
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          cell.addEventListener('click', () => handleCellClick(row, col));
+          board.appendChild(cell);
+        }
+      }
+    }
+
+    function canPlaceDisc(row, col, player) {
+      if (boardState[row][col] !== null) return false;
+
+      const directions = [
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+        [-1, -1], [-1, 1], [1, -1], [1, 1]
+      ];
+      const opponent = player === 'black' ? 'white' : 'black';
+
+      for (const [dr, dc] of directions) {
+        let r = row + dr, c = col + dc;
+        let foundOpponent = false;
+
+        while (r >= 0 && r < size && c >= 0 && c < size) {
+          if (boardState[r][c] === opponent) {
+            foundOpponent = true;
+          } else if (boardState[r][c] === player && foundOpponent) {
+            return true;
+          } else {
+            break;
+          }
+          r += dr;
+          c += dc;
+        }
+      }
+
+      return false;
+    }
+
+    function handleCellClick(row, col) {
+      if (!canPlaceDisc(row, col, currentPlayer)) return;
+
+      const flipped = flipDiscs(row, col, currentPlayer);
+      boardState[row][col] = currentPlayer;
+      flipped.forEach(([r, c]) => {
+        boardState[r][c] = currentPlayer;
+      });
+
+      currentPlayer = currentPlayer === 'black' ? 'white' : 'black';
+      updateGame();
+    }
+
+    function flipDiscs(row, col, player) {
+      const directions = [
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+        [-1, -1], [-1, 1], [1, -1], [1, 1]
+      ];
+      const opponent = player === 'black' ? 'white' : 'black';
+      const toFlip = [];
+
+      directions.forEach(([dr, dc]) => {
+        let r = row + dr, c = col + dc;
+        const possibleFlips = [];
+        while (r >= 0 && r < size && c >= 0 && c < size && boardState[r][c] === opponent) {
+          possibleFlips.push([r, c]);
+          r += dr;
+          c += dc;
+        }
+        if (r >= 0 && r < size && c >= 0 && c < size && boardState[r][c] === player) {
+          toFlip.push(...possibleFlips);
+        }
+      });
+
+      return toFlip;
+    }
+
+    function updateGame() {
+      if (!hasValidMove(currentPlayer)) {
+        message.textContent = `${currentPlayer.toUpperCase()} has no valid moves. Skipping turn.`;
+        currentPlayer = currentPlayer === 'black' ? 'white' : 'black';
+
+        if (!hasValidMove(currentPlayer)) {
+          displayWinner();
+        } else {
+          drawBoard();
+        }
+      } else {
+        message.textContent = `${currentPlayer.toUpperCase()}'s turn.`;
+        drawBoard();
+      }
+    }
+
+    function hasValidMove(player) {
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          if (canPlaceDisc(row, col, player)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function displayWinner() {
+      const blackCount = boardState.flat().filter(disc => disc === 'black').length;
+      const whiteCount = boardState.flat().filter(disc => disc === 'white').length;
+
+      if (blackCount > whiteCount) {
+        message.textContent = `Game Over! Black wins with ${blackCount} to ${whiteCount}.`;
+      } else if (whiteCount > blackCount) {
+        message.textContent = `Game Over! White wins with ${whiteCount} to ${blackCount}.`;
+      } else {
+        message.textContent = `Game Over! It's a draw: ${blackCount} to ${whiteCount}.`;
+      }
+    }
+
+    drawBoard();
+    message.textContent = `${currentPlayer.toUpperCase()}'s turn.`;
+  </script>
+</body>
+</html>
